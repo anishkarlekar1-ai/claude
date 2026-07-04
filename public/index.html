@@ -18,8 +18,12 @@
         <button class="tab active" data-tab="overview">Overview</button>
         <button class="tab" data-tab="todos">TODOs</button>
         <button class="tab" data-tab="board">Board</button>
+        <button class="tab" data-tab="scripts">Scripts</button>
+        <button class="tab" data-tab="health">Health</button>
+        <button class="tab" data-tab="notes">Notes</button>
         <button class="tab" data-tab="git">Git</button>
       </nav>
+      <button class="palette-btn" id="palette-btn" title="Command palette (Ctrl/Cmd+K)">&#8984;K</button>
     </header>
 
     <main class="content">
@@ -42,12 +46,45 @@
       <section id="panel-board" class="panel">
         <div class="panel-head">
           <h2>Kanban Board</h2>
-          <form id="add-task-form" class="add-task-form">
-            <input type="text" id="new-task-title" placeholder="Add a task…" required />
-            <button type="submit">Add</button>
-          </form>
+          <div class="board-actions">
+            <form id="add-task-form" class="add-task-form">
+              <input type="text" id="new-task-title" placeholder="Add a task…" required />
+              <button type="submit">Add</button>
+            </form>
+            <a id="board-export-link" class="export-link" href="/api/board/export" download="board.md">Export as Markdown</a>
+          </div>
         </div>
         <div id="board-columns" class="board-columns"></div>
+      </section>
+
+      <section id="panel-scripts" class="panel">
+        <div class="panel-head">
+          <h2>Scripts</h2>
+          <span class="hint">Detected from package.json and Makefile. Runs in the project directory.</span>
+        </div>
+        <div id="scripts-list" class="scripts-list"></div>
+        <div id="scripts-console" class="scripts-console hidden">
+          <div class="scripts-console-head">
+            <span id="scripts-console-title">Running…</span>
+            <button id="scripts-console-stop">Stop</button>
+          </div>
+          <pre id="scripts-console-output"></pre>
+        </div>
+      </section>
+
+      <section id="panel-health" class="panel">
+        <div class="panel-head">
+          <h2>Project Health</h2>
+        </div>
+        <div id="health-content"></div>
+      </section>
+
+      <section id="panel-notes" class="panel">
+        <div class="panel-head">
+          <h2>Notes</h2>
+          <span class="hint" id="notes-status">Saved to .codecompass/notes.md</span>
+        </div>
+        <textarea id="notes-editor" class="notes-editor" spellcheck="false"></textarea>
       </section>
 
       <section id="panel-git" class="panel">
@@ -57,6 +94,13 @@
         <div id="git-content"></div>
       </section>
     </main>
+  </div>
+
+  <div id="palette-overlay" class="palette-overlay hidden">
+    <div class="palette">
+      <input type="text" id="palette-input" class="palette-input" placeholder="Jump to a tab or run a script…" />
+      <div id="palette-results" class="palette-results"></div>
+    </div>
   </div>
 
   <script src="/app.js"></script>

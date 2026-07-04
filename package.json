@@ -6,6 +6,12 @@
     "codecompass": "./bin/codecompass.js"
   },
   "main": "lib/cli.js",
+  "scripts": {
+    "start": "node bin/codecompass.js serve",
+    "scan": "node bin/codecompass.js scan",
+    "health": "node bin/codecompass.js health",
+    "test": "node -e \"['bin/codecompass.js','lib/cli.js','lib/scan.js','lib/git.js','lib/board.js','lib/server.js','lib/notes.js','lib/health.js','lib/scripts.js','public/app.js'].forEach(f=>require('child_process').execFileSync('node',['-c',f],{stdio:'inherit'}));console.log('all files parse OK')\""
+  },
   "engines": {
     "node": ">=14"
   },

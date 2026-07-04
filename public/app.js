@@ -4,8 +4,13 @@
   const state = {
     scan: null,
     git: null,
-    board: null
+    board: null,
+    scripts: null,
+    health: null,
+    activeRun: null
   };
+
+  const TAB_NAMES = ['overview', 'todos', 'board', 'scripts', 'health', 'notes', 'git'];
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
@@ -24,14 +29,15 @@
     return res.json();
   }
 
+  function switchTab(name) {
+    if (TAB_NAMES.indexOf(name) === -1) return;
+    $all('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    $all('.panel').forEach((p) => p.classList.toggle('active', p.id === 'panel-' + name));
+  }
+
   function setupTabs() {
     $all('.tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        $all('.tab').forEach((t) => t.classList.remove('active'));
-        $all('.panel').forEach((p) => p.classList.remove('active'));
-        tab.classList.add('active');
-        $('#panel-' + tab.dataset.tab).classList.add('active');
-      });
+      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
   }
 
@@ -211,21 +217,255 @@
       '<div class="git-section"><h3>Recent commits</h3>' + logHtml + '</div>';
   }
 
+  function stopActiveRun() {
+    if (state.activeRun) {
+      state.activeRun.close();
+      state.activeRun = null;
+    }
+  }
+
+  function runScript(runnable, btn) {
+    stopActiveRun();
+
+    const consoleEl = $('#scripts-console');
+    const output = $('#scripts-console-output');
+    const title = $('#scripts-console-title');
+    consoleEl.classList.remove('hidden');
+    output.textContent = '';
+    title.textContent = 'Running ' + runnable.name + '  (' + runnable.command + ')';
+
+    $all('.script-run-btn').forEach((b) => (b.disabled = true));
+    if (btn) btn.textContent = 'Running…';
+
+    const es = new EventSource('/api/scripts/run?id=' + encodeURIComponent(runnable.id));
+    state.activeRun = es;
+
+    es.addEventListener('log', (e) => {
+      const data = JSON.parse(e.data);
+      output.textContent += data.text;
+      output.scrollTop = output.scrollHeight;
+    });
+
+    const finish = (label) => {
+      title.textContent = label;
+      $all('.script-run-btn').forEach((b) => (b.disabled = false));
+      es.close();
+      if (state.activeRun === es) state.activeRun = null;
+    };
+
+    es.addEventListener('end', (e) => {
+      const data = JSON.parse(e.data);
+      finish(runnable.name + ' finished (exit code ' + data.code + ')');
+    });
+
+    es.onerror = () => finish(runnable.name + ' stopped');
+  }
+
+  function renderScripts() {
+    const runnables = state.scripts;
+    if (!runnables) return;
+    if (!runnables.length) {
+      $('#scripts-list').innerHTML = '<div class="empty-state">No npm scripts or Makefile targets detected in this project.</div>';
+      return;
+    }
+    $('#scripts-list').innerHTML = runnables
+      .map((r, i) => (
+        '<div class="script-item">' +
+        '<span class="script-type">' + escapeHtml(r.type) + '</span>' +
+        '<span class="script-name">' + escapeHtml(r.name) + '</span>' +
+        '<span class="script-command">' + escapeHtml(r.command) + '</span>' +
+        '<button class="script-run-btn" data-idx="' + i + '">Run</button>' +
+        '</div>'
+      ))
+      .join('');
+
+    $all('.script-run-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const runnable = runnables[Number(btn.dataset.idx)];
+        runScript(runnable, btn);
+      });
+    });
+
+    $('#scripts-console-stop').onclick = () => {
+      stopActiveRun();
+      $('#scripts-console-title').textContent = 'Stopped';
+      $all('.script-run-btn').forEach((b) => (b.disabled = false));
+    };
+  }
+
+  function renderHealth() {
+    const health = state.health;
+    if (!health) return;
+    $('#health-content').innerHTML =
+      '<div class="health-summary"><strong>' + health.passCount + ' / ' + health.total + '</strong> checks passing</div>' +
+      health.checks
+        .map((c) => (
+          '<div class="health-check">' +
+          '<span class="health-icon ' + c.status + '">' + (c.status === 'pass' ? '&#10003;' : c.status === 'warn' ? '!' : '&#10007;') + '</span>' +
+          '<div class="health-body">' +
+          '<div class="health-label">' + escapeHtml(c.label) + '</div>' +
+          '<div class="health-detail">' + escapeHtml(c.detail) + '</div>' +
+          '</div>' +
+          '</div>'
+        ))
+        .join('');
+  }
+
+  let notesSaveTimer = null;
+
+  function setupNotes(initialContent) {
+    const editor = $('#notes-editor');
+    editor.value = initialContent;
+    const status = $('#notes-status');
+
+    editor.addEventListener('input', () => {
+      status.textContent = 'Saving…';
+      clearTimeout(notesSaveTimer);
+      notesSaveTimer = setTimeout(async () => {
+        await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: editor.value })
+        });
+        status.textContent = 'Saved to .codecompass/notes.md';
+      }, 500);
+    });
+  }
+
+  function setupPalette() {
+    const overlay = $('#palette-overlay');
+    const input = $('#palette-input');
+    const results = $('#palette-results');
+    let items = [];
+    let activeIndex = 0;
+
+    function buildItems(query) {
+      const q = query.trim().toLowerCase();
+      const tabItems = TAB_NAMES.map((name) => ({
+        label: 'Go to ' + name[0].toUpperCase() + name.slice(1),
+        hint: 'tab',
+        action: () => switchTab(name)
+      }));
+      const scriptItems = (state.scripts || []).map((r) => ({
+        label: 'Run ' + r.name,
+        hint: r.type,
+        action: () => {
+          switchTab('scripts');
+          runScript(r, null);
+        }
+      }));
+      const all = tabItems.concat(scriptItems);
+      if (!q) return all;
+      return all.filter((it) => it.label.toLowerCase().indexOf(q) !== -1);
+    }
+
+    function render() {
+      results.innerHTML = items
+        .map((it, i) => (
+          '<div class="palette-item' + (i === activeIndex ? ' active' : '') + '" data-idx="' + i + '">' +
+          '<span class="palette-item-label">' + escapeHtml(it.label) + '</span>' +
+          '<span class="palette-item-hint">' + escapeHtml(it.hint) + '</span>' +
+          '</div>'
+        ))
+        .join('') || '<div class="empty-state">No matches.</div>';
+
+      $all('.palette-item', results).forEach((el) => {
+        el.addEventListener('click', () => {
+          items[Number(el.dataset.idx)].action();
+          close();
+        });
+      });
+    }
+
+    function open() {
+      overlay.classList.remove('hidden');
+      input.value = '';
+      activeIndex = 0;
+      items = buildItems('');
+      render();
+      input.focus();
+    }
+
+    function close() {
+      overlay.classList.add('hidden');
+    }
+
+    input.addEventListener('input', () => {
+      activeIndex = 0;
+      items = buildItems(input.value);
+      render();
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+        render();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        render();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (items[activeIndex]) {
+          items[activeIndex].action();
+          close();
+        }
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+
+    $('#palette-btn').addEventListener('click', open);
+
+    document.addEventListener('keydown', (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        open();
+        return;
+      }
+      if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        close();
+        return;
+      }
+      const tag = (document.activeElement && document.activeElement.tagName) || '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const num = Number(e.key);
+      if (num >= 1 && num <= TAB_NAMES.length) {
+        switchTab(TAB_NAMES[num - 1]);
+      }
+    });
+  }
+
   async function loadAll() {
-    const [meta, scan, git, board] = await Promise.all([
+    const [meta, scan, git, board, scripts, health, notes] = await Promise.all([
       fetchJson('/api/meta'),
       fetchJson('/api/scan'),
       fetchJson('/api/git'),
-      fetchJson('/api/board')
+      fetchJson('/api/board'),
+      fetchJson('/api/scripts'),
+      fetchJson('/api/health'),
+      fetchJson('/api/notes')
     ]);
     $('#project-path').textContent = meta.root;
     state.scan = scan;
     state.git = git;
     state.board = board;
+    state.scripts = scripts;
+    state.health = health;
     renderOverview();
     renderTodos();
     renderBoard();
     renderGit();
+    renderScripts();
+    renderHealth();
+    setupNotes(notes.content);
+    setupPalette();
   }
 
   function setupAddTaskForm() {
