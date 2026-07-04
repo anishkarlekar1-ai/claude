@@ -1,0 +1,13 @@
+{
+  "name": "codecompass",
+  "version": "1.0.0",
+  "description": "A zero-dependency CLI + local web dashboard that helps coders organize a project: TODO scanner, language/LOC stats, git activity, and a kanban board.",
+  "bin": {
+    "codecompass": "./bin/codecompass.js"
+  },
+  "main": "lib/cli.js",
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "MIT"
+}

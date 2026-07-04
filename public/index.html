@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CodeCompass</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">&#8982;</span>
+        <span class="brand-name">CodeCompass</span>
+      </div>
+      <div class="project-path" id="project-path">loading project…</div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="todos">TODOs</button>
+        <button class="tab" data-tab="board">Board</button>
+        <button class="tab" data-tab="git">Git</button>
+      </nav>
+    </header>
+
+    <main class="content">
+      <section id="panel-overview" class="panel active">
+        <div class="cards" id="stat-cards"></div>
+        <div class="card lang-card">
+          <h3>Languages</h3>
+          <div id="lang-bars" class="lang-bars"></div>
+        </div>
+      </section>
+
+      <section id="panel-todos" class="panel">
+        <div class="panel-head">
+          <h2>TODO / FIXME markers</h2>
+          <span class="hint">Click "+ Board" to send a marker to your kanban board.</span>
+        </div>
+        <div id="todo-list" class="todo-list"></div>
+      </section>
+
+      <section id="panel-board" class="panel">
+        <div class="panel-head">
+          <h2>Kanban Board</h2>
+          <form id="add-task-form" class="add-task-form">
+            <input type="text" id="new-task-title" placeholder="Add a task…" required />
+            <button type="submit">Add</button>
+          </form>
+        </div>
+        <div id="board-columns" class="board-columns"></div>
+      </section>
+
+      <section id="panel-git" class="panel">
+        <div class="panel-head">
+          <h2>Git Activity</h2>
+        </div>
+        <div id="git-content"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
