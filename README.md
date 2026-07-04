@@ -13,6 +13,11 @@ A zero-dependency CLI + local web dashboard that helps coders organize a project
 
 No `npm install` required — it only uses Node's built-in modules.
 
+**Coding entirely on Android (e.g. in Pydroid 3) with no computer?** Use
+[`android/codecompass_android.py`](android/codecompass_android.py) instead — a single-file,
+pure-Python rewrite of this same app with no Node.js required. See
+[`android/README.md`](android/README.md) for setup.
+
 ## Usage
 
 Run from the root of the project you want to organize:
